@@ -9,6 +9,43 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.7 — 11/ago/2026
+
+### Instrumentação — contador de FPS
+
+O app não tinha **nenhum** indicador de FPS ou de tempo de frame. Sem medir não
+há como otimizar: qualquer ajuste vira fé.
+
+`video_processor._contar_fps_saida()` mede no envio para a câmera virtual — o
+último passo do pipeline, então o número engloba captura, detecção, swap,
+restorer, máscaras, blend e paste-back. Loga a cada 5 s:
+
+```
+[fps]  28.4 fps  |  frame: mediana  35.2 ms  p95  41.0 ms  pior  58.3 ms  (142 frames)
+```
+
+Reporta **mediana e p95**, não média, porque média esconde engasgo: um pipeline
+com mediana 16 ms e p95 90 ms parece "60 fps" na média e trava visivelmente na
+prática. Avisa explicitamente quando p95 > 2× mediana.
+
+### Medição de referência (RTX 5090, com o swap rodando)
+
+| | |
+|---|---|
+| utilização GPU | ~78% (70–87%) |
+| clock SM | 2955–2970 MHz (boost máximo) |
+| consumo | 480–514 W (de ~575 W) |
+| VRAM | 6,75 GB |
+| temperatura | 72–76 °C |
+
+Registrado porque desfaz uma suposição comum: **a VRAM baixa não indica placa
+ociosa.** 500 W em boost máximo é a placa trabalhando de verdade. Os modelos de
+rosto são 256 px e por natureza pequenos; alocar mais VRAM não compraria
+desempenho nenhum. A folga real é os ~22% de utilização, e gasta-se ela em
+qualidade (modelo/resolução maior), não em memória.
+
+---
+
 ## 3.9.3+xdz.6 — 11/ago/2026
 
 ### Usabilidade — o fluxo de webcam agora funciona sozinho

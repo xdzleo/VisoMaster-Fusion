@@ -1441,6 +1441,7 @@ class VideoProcessor(QObject):
                 if self.virtcam:
                     try:
                         self.virtcam.send(frame)
+                        self._contar_fps_saida()
                     except Exception as e:
                         print(
                             f"[WARN] Catastrophic failure sending frame to virtualcam: {e}"
@@ -1448,6 +1449,52 @@ class VideoProcessor(QObject):
                         # If the driver crashes midway, trip the circuit breaker and disable to prevent spam.
                         self._virtcam_error_latch = True
                         self.disable_virtualcam()
+
+    def _contar_fps_saida(self):
+        """FORK: mede o que REALMENTE sai para a camera virtual.
+
+        O app nao tinha contador de FPS em lugar nenhum, e sem medir nao da para
+        otimizar — qualquer ajuste vira fe. Aqui e o ponto certo de medicao: e o
+        ultimo passo do pipeline, entao o numero inclui captura, deteccao, swap,
+        restorer, mascaras, blend e paste-back.
+
+        Reporta mediana e p95 do intervalo entre frames, nao so a media: a media
+        esconde engasgo. Um pipeline com mediana 16 ms e p95 90 ms parece "60 fps"
+        na media e trava visivelmente na pratica.
+        """
+        import time as _t
+
+        agora = _t.perf_counter()
+        anterior = getattr(self, "_fps_ultimo_envio", None)
+        self._fps_ultimo_envio = agora
+        if anterior is None:
+            self._fps_intervalos = []
+            self._fps_proximo_log = agora + 5.0
+            return
+
+        intervalos = self._fps_intervalos
+        intervalos.append(agora - anterior)
+
+        if agora < self._fps_proximo_log:
+            return
+        self._fps_proximo_log = agora + 5.0
+        if len(intervalos) < 5:
+            intervalos.clear()
+            return
+
+        ordenado = sorted(intervalos)
+        n = len(ordenado)
+        mediana = ordenado[n // 2] * 1000
+        p95 = ordenado[min(n - 1, int(n * 0.95))] * 1000
+        pior = ordenado[-1] * 1000
+        fps = 1000.0 / mediana if mediana > 0 else 0.0
+
+        aviso = "   <- entrega irregular" if p95 > mediana * 2 else ""
+        print(
+            f"[fps] {fps:5.1f} fps  |  frame: mediana {mediana:5.1f} ms  "
+            f"p95 {p95:5.1f} ms  pior {pior:5.1f} ms  ({n} frames){aviso}"
+        )
+        intervalos.clear()
 
     def set_number_of_threads(self, value):
         """Updates the thread count for the *next* worker pool."""

@@ -9,6 +9,62 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.2 — 11/ago/2026
+
+### Correção de bug — alinhamento (afeta qualidade de TODO swap)
+
+- **`get_arcface_template` deslocava um keypoint em vez da coluna x**
+  (`faceutil.py:508`). `arcface_src` é `(1,5,2)` por causa do `expand_dims` da
+  linha 117, então `template[:, 0]` indexa o **keypoint 0** e devolve o par
+  `[x, y]` dele — o offset de centragem caía num único ponto, **nos dois eixos**,
+  e os outros quatro nunca se moviam. O certo é `template[..., 0]`.
+
+  Medido em 512:
+
+  | | valor |
+  |---|---|
+  | diferença p/ o correto | `[[0,+32], [-32,0], [-32,0], [-32,0], [-32,0]]` |
+  | distância interpupilar do template | **113,77 px** (correto: 140,95) → **19,3% pequeno demais** |
+  | olho esquerdo | deslocado 32 px em y, inclinando a linha dos olhos |
+
+  Duas confirmações independentes de que a forma corrigida é a pretendida:
+  1. `face_restorers.py:118-119` monta o mesmo template com `dst[:, 0] += 32.0`
+     num array `(5,2)`, onde `[:, 0]` **é** a coluna x. As duas construções
+     discordavam; agora batem — o que conserta de graça o modo "Blend" do restorer.
+  2. Os modelos de swap são de terceiros e treinados no template arcface canônico.
+     Um crop 19% menor com um keypoint deslocado os alimentava **fora da
+     distribuição de treino**. O embedding da FONTE nunca foi afetado
+     (`recognize()` usa arcface112/arcfacemap, que não passam por esse ramo), então
+     uma identidade-fonte bem alinhada estava sendo pareada com um crop-alvo
+     desalinhado. Essa assimetria era o dano.
+
+  Trava de regressão em `tests/test_arcface_template.py` (3 testes). Verificado
+  que falham no código com bug e passam depois; o resto da suíte fica igual
+  (as falhas de UI pré-existentes são idênticas antes e depois).
+
+  ⚠️ Muda a distribuição de alinhamento: `tform.scale` sobe ~12,7% e alguns rostos
+  cruzam as faixas de `dim` do polyphase em `frame_worker_pipeline.py:296-307`.
+  Vale um A/B em material real.
+
+### Correção de bug — diagnóstico
+
+- **Falha alta quando a sessão cai para CPU em silêncio** (`models_processor.py`).
+  O log dizia `with provider: {self.provider_name}`, mas isso é o **rótulo do
+  dropdown da UI** (`:166`, `:1228`), nunca derivado da sessão. Com as DLLs do
+  CUDA falhando, o onnxruntime devolve sessão só-CPU sem erro e o app seguia
+  reportando "TensorRT" rodando 50–100× mais devagar. `get_providers()` aparecia
+  **zero** vezes no projeto inteiro.
+
+  Agora pergunta à sessão o que ela realmente obteve e levanta erro quando a
+  lista volta começando em CPU com GPU pedida.
+
+  Não exigimos `TensorrtExecutionProvider`: `get_providers()` diz quais EPs
+  **registraram**, não qual ficou com os nós — TensorRT registrar sem receber nó
+  é legítimo aqui (build preguiçoso). Só uma lista começando em CPU prova que os
+  EPs de GPU não carregaram.
+
+---
+
 ## 3.9.3+xdz.1 — 11/ago/2026
 
 Base: upstream `v3.9.3`.

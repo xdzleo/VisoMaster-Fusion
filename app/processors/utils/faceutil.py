@@ -505,7 +505,13 @@ def get_arcface_template(image_size=112, mode="arcface112"):
     elif mode == "arcface128":
         factor = float(image_size) / 128.0
         template = arcface_src * factor
-        template[:, 0] += factor * 8.0
+        # arcface_src tem forma (1, 5, 2) por causa do expand_dims na linha 117,
+        # entao `template[:, 0]` NAO e a coluna x — e o keypoint 0 inteiro, e o
+        # deslocamento cai em x E y desse unico ponto. O certo e `...`, que pega
+        # a coluna x dos 5 pontos (centra o template 112 numa caixa 128).
+        # A mesma operacao aparece escrita corretamente em face_restorers.py:119,
+        # onde o array e (5, 2) e portanto `[:, 0]` de fato e a coluna x.
+        template[..., 0] += factor * 8.0
     else:
         template = float(image_size) / 112.0 * src_map[112]
 

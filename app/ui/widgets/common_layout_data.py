@@ -6,7 +6,11 @@ COMMON_LAYOUT_DATA: Any = {
         "FaceRestorerEnableToggle": {
             "level": 1,
             "label": "Enable Face Restorer",
-            "default": False,
+            # FORK: default True. O swapper e 256-native e a saida sai mole
+            # comparada ao video em volta; o restorer e o que devolve nitidez.
+            # Medido nesta placa (TensorRT): GFPGAN-1024 custa 5.85 ms, e a
+            # cadeia inteira fecha em 14.01 ms — cabe em 30 E em 60 fps.
+            "default": True,
             "help": "Enable the use of a face restoration model to improve the quality of the face after swapping.",
             "exec_function": control_actions.handle_restorer_state_change,
             "exec_function_args": ["FaceRestorerEnableToggle"],
@@ -25,7 +29,11 @@ COMMON_LAYOUT_DATA: Any = {
                 "RestoreFormer++",
                 "VQFR-v2",
             ],
-            "default": "GFPGAN-v1.4",
+            # FORK: GFPGAN-1024 em vez do v1.4. Resolve em 1024 em vez de 512,
+            # e medido em TensorRT custa so 2.5 ms a mais (5.85 vs 3.37).
+            # RestoreFormer++ foi descartado: 14.62 ms estoura o orcamento de
+            # 60 fps.
+            "default": "GFPGAN-1024",
             "parentToggle": "FaceRestorerEnableToggle",
             "requiredToggleValue": True,
             "help": "Select the model type for face restoration.",
@@ -60,7 +68,12 @@ COMMON_LAYOUT_DATA: Any = {
             "label": "Blend",
             "min_value": "0",
             "max_value": "100",
-            "default": "100",
+            # FORK: 65 em vez de 100. ESTE e o ajuste que causa a cara de
+            # plastico. Em 100 a saida idealizada do restorer substitui a pele
+            # inteira, apagando poro e microtextura — todo rosto sai com a
+            # mesma "cara de restorer". Em ~65 sobra 35% da textura real do
+            # swap por baixo, que e o que faz parecer pele e nao cera.
+            "default": "65",
             "step": 1,
             "parentToggle": "FaceRestorerEnableToggle",
             "requiredToggleValue": True,

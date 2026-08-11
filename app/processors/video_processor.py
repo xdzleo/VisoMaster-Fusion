@@ -43,6 +43,13 @@ if TYPE_CHECKING:
 IssueScanTargetEmbeddings = dict[str, dict[str, numpy.ndarray]]
 IssueScanTargetSnapshot = dict[str, dict[str, Any]]
 
+# FORK: teto de frames de webcam em voo (capturados mas ainda nao exibidos).
+# Baixo de proposito: em webcam o que importa e LATENCIA, e a GPU e o gargalo,
+# entao enfileirar mais capturas so as faz envelhecer. 2 mantem o worker
+# alimentado sem acumular atraso. Nao afeta o feeder de arquivo, que
+# continua usando max_display_buffer_size (throughput importa la, latencia nao).
+WEBCAM_MAX_IN_FLIGHT = 2
+
 SCAN_CONTROL_ALLOWLIST = frozenset(
     {
         "GlobalInputResizeToggle",
@@ -1071,8 +1078,19 @@ class VideoProcessor(QObject):
                 in_flight_frames = (
                     len(self.webcam_frames_to_display.queue) + self.frame_queue.qsize()
                 )
-                if in_flight_frames >= self.max_display_buffer_size:
-                    time.sleep(0.005)  # Wait 5ms (buffer full)
+                # FORK: webcam e LATENCIA, nao throughput.
+                #
+                # max_display_buffer_size = preroll_target + num_threads*2 (=28 no
+                # padrao). A fila de display se auto-limita em 1, entao isso
+                # autorizava ~27 capturas ENVELHECENDO na frame_queue. Como a GPU
+                # e o gargalo de qualquer jeito, esses frames extras nao aumentam
+                # o throughput em nada — so adicionam ~27 tempos-de-frame de
+                # atraso entre o seu rosto e o que sai no OBS.
+                #
+                # O feeder de ARQUIVO (linha ~785) mantem o buffer grande de
+                # proposito: la throughput importa e latencia nao.
+                if in_flight_frames >= WEBCAM_MAX_IN_FLIGHT:
+                    time.sleep(0.002)
                     continue
 
                 ret, frame_bgr = misc_helpers.read_frame(
@@ -1147,6 +1165,20 @@ class VideoProcessor(QObject):
                     kpss,
                     kpss_203,
                 )
+
+                # FORK: descarta capturas velhas antes de enfileirar a nova.
+                #
+                # Todas as tasks de webcam carregam frame_number=0 (acima) e
+                # store_webcam_frame_to_display e "ultima CHEGADA vence" — logo
+                # um worker lento podia sobrescrever um frame novo com um velho.
+                # Drenar aqui fecha essa janela de reordenacao e garante que o
+                # worker sempre pegue o frame mais recente.
+                while True:
+                    try:
+                        self.frame_queue.get_nowait()
+                        self.frame_queue.task_done()
+                    except queue.Empty:
+                        break
 
                 # Put the task in the queue for the worker pool
                 self.frame_queue.put(task)

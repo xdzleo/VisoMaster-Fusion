@@ -289,7 +289,13 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
         "OccluderEnableToggle": {
             "level": 1,
             "label": "Occlusion Mask",
-            "default": False,
+            # FORK: default True. Sem nenhuma mascara facial ligada, o unico
+            # recorte aplicado e o retangulo de borda de 128px — o proprio
+            # comentario em BorderBottomSlider admite que ele existe so "to
+            # prevent black square around the swap when no occlusion is
+            # selected". Uma mascara que segue mandibula/linha do cabelo e o
+            # maior ganho visual isolado disponivel, e o modelo ja esta baixado.
+            "default": True,
             "help": "Allow objects occluding the face to show up in the swapped image.",
             "exec_function": control_actions.handle_face_mask_state_change,
             "exec_function_args": ["OccluderEnableToggle"],
@@ -316,7 +322,10 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
         "DFLXSegEnableToggle": {
             "level": 1,
             "label": "DFL XSeg Mask",
-            "default": False,
+            # FORK: default True — ver a nota em OccluderEnableToggle.
+            # XSeg lida melhor com oclusao real (mao, mic, oculos) que o
+            # occluder generico; os dois juntos e a combinacao recomendada.
+            "default": True,
             "help": "Allow objects occluding the face to show up in the swapped image.",
             "exec_function": control_actions.handle_face_mask_state_change,
             "exec_function_args": ["DFLXSegEnableToggle"],
@@ -1344,7 +1353,13 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
         "EndingColorTransferEnableToggle": {
             "level": 1,
             "label": "Enable Ending Color Transfer",
-            "default": False,
+            # FORK: default True. Com o default original NAO EXISTE nenhum
+            # casamento de tom de pele em lugar nenhum da cadeia — e diferenca
+            # de cor entre o rosto trocado e a pele em volta e um dos tells
+            # visuais mais fortes. O estagio ja esta no lugar certo (depois dos
+            # dois restorers), entao tambem cancela o desvio de contraste/
+            # saturacao que o restorer introduz.
+            "default": True,
             # Toggling color transfer must NOT trigger a single-frame refresh.
             # See AutoColorEnableToggle above for the same rationale — refresh
             # corrupted bboxes broke auto-mouth on stopped frames after color
@@ -1362,7 +1377,11 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
                 "Reinhard Transfer (Masked)",
                 "AdaIN (Core Masked)",
             ],
-            "default": "CDF Histogram",
+            # FORK: Reinhard em vez de CDF Histogram. Reinhard casa media e
+            # desvio-padrao em LAB — transicao suave, robusta a mudanca de
+            # fundo. CDF forca o histograma inteiro, o que em video ao vivo
+            # oscila frame a frame conforme o fundo muda.
+            "default": "Reinhard Transfer",
             "parentToggle": "EndingColorTransferEnableToggle",
             "requiredToggleValue": True,
             "help": (

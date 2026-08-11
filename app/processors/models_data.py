@@ -284,6 +284,23 @@ fp16_safe_models_list = [
     "GhostFacev3",
 ]
 
+# TESTADO E REVERTIDO — nao readicionar "GFPGAN1024" nem "XSeg" aqui.
+#
+# Os engines destes dois de fato eram FP32 (o MESMO hash de grafo existia duas
+# vezes em disco, um com ~metade dos bytes: GFPGAN 16650197153491688506 com
+# 198 MB vs 392 MB), e o rebuild em FP16 funcionou — 374,7 MB caiu para 188 MB.
+#
+# Mas o resultado VISUAL quebrou: rosto trocando rapidamente e cheio de
+# artefatos. Exatamente o modo de falha previsto — GFPGAN-1024 e decoder estilo
+# GAN e XSeg define a BORDA da mascara; em FP16 nenhum dos dois levanta erro,
+# eles degradam a imagem em silencio, e uma mascara instavel faz a identidade
+# oscilar frame a frame.
+#
+# Ganho teorico era ~1,5-2,5 ms de 14,01 ms. Nao compensa: fluidez nao vale
+# nada se a imagem treme. Se alguem tentar de novo, faca UM modelo por vez e
+# valide em frame congelado com luz forte no rosto.
+# Engines FP32 originais guardadas em C:\AvatarKit\_backup-engines-fp32\.
+
 # Models whose ONNX graph must be shape-inferred (with a static batch=1) before
 # the TensorRT EP can build an engine. The PerformRecast warping module contains
 # 5-D GridSample nodes whose outputs have no static shape, which makes the TRT EP

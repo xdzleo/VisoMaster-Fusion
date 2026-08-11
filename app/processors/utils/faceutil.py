@@ -563,7 +563,10 @@ def estimate_norm(lmk, image_size=112, mode="arcface112"):
             factor = float(image_size) / 128.0
             # F-05: copy before modifying to avoid mutating the module-level template
             src = arcface_src.copy() * factor
-            src[:, 0] += factor * 8.0
+            # FORK: gemeo do bug corrigido em get_arcface_template (linha ~514).
+            # arcface_src e (1,5,2) por causa do expand_dims da linha 117, entao
+            # `src[:, 0]` indexa o KEYPOINT 0 inteiro (x E y), nao a coluna x.
+            src[..., 0] += factor * 8.0
     else:
         src = float(image_size) / 112.0 * src_map[112]
 

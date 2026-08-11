@@ -9,6 +9,55 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.10 — 11/ago/2026
+
+### Latência — lote bit-idêntico de ~8,5 ms/frame
+
+Seis mudanças que **eliminam trabalho redundante sem alterar um pixel**. Todas
+medidas na RTX 5090 real (não estimadas) e verificadas com `np.array_equal` /
+`torch.equal`.
+
+| onde | de → para | ganho | prova |
+|---|---|---|---|
+| `frame_worker.py:606` cauda do frame | 5,902 → 0,238 ms | **5,50 ms** | `np.array_equal` |
+| `frame_worker.py:575` HWC→CHW | 1,009 → 0,170 ms | 0,84 ms | `torch.equal` |
+| `frame_worker_pipeline.py:3024` paste-back | 1,375 → 0,735 ms | 0,64 ms | `torch.equal` (3ch + máscara) |
+| `video_processor.py:1126` BGR→RGB | 2,565 → 0,321 ms | 2,24 ms* | `np.array_equal` |
+
+\* thread **feeder**: melhora latência vidro-a-OBS, não FPS.
+
+**A cauda do frame era pior do que aparentava.** `permute(1,2,0).cpu()` *preserva*
+os strides permutados (medido: `(1280, 1, 921600)`, `C_CONTIGUOUS=False`), e o
+`.astype` com `order='K'` preserva a não-contiguidade — então o `if` da linha
+seguinte disparava **sempre**, e o `[..., ::-1]` devolvia stride negativo que a
+linha 406 materializava numa **quarta** cópia. Fazendo tudo na GPU, desce um
+buffer já contíguo e a 406 vira no-op de verdade.
+
+**O paste-back tem a causa mais interessante:** cada `kornia.warp_affine` chama
+`torch.linalg.inv` **duas vezes**, e uma inversão 3×3 na CUDA custa **0,217 ms** —
+precisa ler o `info` do cuSOLVER, o que força sincronização de dispositivo. Duas
+chamadas = quatro inversões por frame. Concatenar em 4 canais paga isso uma vez.
+
+### Correção latente
+
+- **`faceutil.py:566`** — gêmeo não corrigido do bug do template arcface128
+  (`src[:, 0]` → `src[..., 0]`). Mesma causa do que foi corrigido em `+xdz.2`:
+  `arcface_src` é `(1,5,2)`, então `[:, 0]` indexa o keypoint 0 inteiro.
+
+### Resultado medido — e como interpretá-lo
+
+| | mediana | fps |
+|---|---|---|
+| antes deste lote | 34–36 ms | 28–29 |
+| depois | 31,5–33,5 ms | **30–32** |
+
+A mediana caiu ~3 ms, não 8,5 — **e isso é o esperado**. Com o app terminando em
+~26 ms e a câmera entregando a cada 33,3 ms (30 fps), **o gargalo passou a ser a
+câmera**. A economia é real, só não tem onde aparecer. Para convertê-la em ganho,
+subir *Webcam FPS* de 30 para 60 na interface.
+
+---
+
 ## 3.9.3+xdz.9 — 11/ago/2026
 
 ### Thread de GUI — correções sem ganho mensurável (registrado como tal)

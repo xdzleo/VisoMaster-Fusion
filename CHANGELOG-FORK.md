@@ -9,6 +9,47 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.3 — 11/ago/2026
+
+### Qualidade — defaults
+
+Três defaults do upstream deixavam qualidade óbvia na mesa. Este fork mira
+qualidade máxima num 5090, então agora o default é o caminho bom.
+
+- **Máscaras ligadas** (`OccluderEnableToggle`, `DFLXSegEnableToggle` → `True`).
+  Com os defaults originais, a **única** coisa recortando o composto era o
+  retângulo de borda de 128px — o próprio comentário do slider admite que ele
+  existe "to prevent black square around the swap when no occlusion is selected".
+  Máscara seguindo mandíbula e linha do cabelo é o maior ganho visual isolado
+  disponível. Os dois modelos já vêm baixados (XSeg 67 MB, occluder 55 MB).
+- **Color transfer ligado** (`EndingColorTransferEnableToggle` → `True`), tipo
+  trocado de `CDF Histogram` para **`Reinhard Transfer`**. Sem isso **não existe
+  nenhum** casamento de tom de pele na cadeia. Reinhard casa média e desvio em
+  LAB (suave, robusto a mudança de fundo); CDF força o histograma inteiro, que
+  em vídeo ao vivo oscila frame a frame conforme o fundo muda.
+
+### Latência — webcam
+
+- **`WEBCAM_MAX_IN_FLIGHT = 2`** + drenagem de tasks velhas antes de enfileirar
+  (`video_processor.py`). O gate usava `max_display_buffer_size`
+  (preroll + num_threads×2 = 28). Como a fila de display se auto-limita em 1,
+  isso autorizava **~27 capturas envelhecendo**. A GPU é o gargalo de qualquer
+  forma, então esses frames não compravam throughput nenhum — só somavam ~27
+  tempos-de-frame entre o rosto e o OBS.
+
+  A drenagem também fecha uma janela de reordenação: todas as tasks de webcam
+  carregam `frame_number=0` e o display é "última **chegada** vence", então um
+  worker lento podia sobrescrever um frame novo com um velho.
+
+  O feeder de **arquivo** ficou intocado de propósito — lá throughput importa e
+  latência não.
+
+> Custo das máscaras/cor e ganho de latência precisam de câmera ao vivo para
+> quantificar. Referência já medida nesta placa: swapper InStyleSwapper256-C a
+> **9,33 ms (107/s)**, logo há folga de orçamento por frame.
+
+---
+
 ## 3.9.3+xdz.2 — 11/ago/2026
 
 ### Correção de bug — alinhamento (afeta qualidade de TODO swap)

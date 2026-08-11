@@ -537,7 +537,11 @@ class Ui_MainWindow(object):
         self.targetVideosFilterWebcamsCheckBox.setIcon(icon21)
         self.targetVideosFilterWebcamsCheckBox.setIconSize(QSize(18, 18))
         self.targetVideosFilterWebcamsCheckBox.setCheckable(True)
-        self.targetVideosFilterWebcamsCheckBox.setChecked(False)
+        # FORK: marcado por padrao. Desmarcado, a webcam simplesmente NAO
+        # APARECE na lista de alvos — e nada na interface indica que existe um
+        # filtro escondendo ela. Para um fluxo de avatar ao vivo, a webcam e o
+        # alvo principal, entao esconde-la por padrao e o contrario do esperado.
+        self.targetVideosFilterWebcamsCheckBox.setChecked(True)
         self.horizontalLayout_9a.addWidget(self.targetVideosFilterWebcamsCheckBox)
         self.vboxLayout.addLayout(self.horizontalLayout_9a)
         self.horizontalLayout_9b_gridLayout_3 = QGridLayout()

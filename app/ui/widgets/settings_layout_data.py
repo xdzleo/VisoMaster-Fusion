@@ -309,13 +309,23 @@ SETTINGS_LAYOUT_DATA: Any = {  # noqa: F811
         "AutoSwapToggle": {
             "level": 1,
             "label": "Auto Swap",
-            "default": False,
+            # FORK: default True. Desligado, o vinculo entre a foto de origem e
+            # o rosto detectado tem que ser feito A MAO (clicar no rosto, depois
+            # no card) — passo que nao esta em lugar nenhum da interface e onde
+            # todo mundo trava: tudo parece configurado e nada acontece.
+            # Ligado, card_actions atribui as input faces marcadas assim que o
+            # rosto e detectado. E o unico jeito de o fluxo de webcam funcionar
+            # sozinho, ja que ali os rostos sao re-detectados continuamente.
+            "default": True,
             "help": "Automatically Swap all faces using selected Source Faces/Embeddings when loading an video/image file",
         },
         "KeepInputToggle": {
             "level": 1,
             "label": "Keep Selected Input Faces / Embeddings",
-            "default": False,
+            # FORK: default True — par do Auto Swap. Sem isto a selecao de
+            # origem se perde ao trocar de midia alvo, e no fluxo de webcam
+            # isso significa perder o vinculo a cada re-deteccao.
+            "default": True,
             "help": "Keep the selected Input Faces Or Embeddings when switching Target Media.",
         },
         "SwapOnlyBestMatchEnableToggle": {

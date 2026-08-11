@@ -9,6 +9,37 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.6 — 11/ago/2026
+
+### Usabilidade — o fluxo de webcam agora funciona sozinho
+
+Testando de ponta a ponta pela primeira vez, o pipeline **não funcionava** com os
+padrões do upstream — e por dois motivos que a interface não revela.
+
+- **`targetVideosFilterWebcamsCheckBox` marcado por padrão**
+  (`app/ui/core/main_window.py`). Desmarcado, a webcam simplesmente **não aparece**
+  na lista de alvos, e nada indica que há um filtro escondendo ela. Para um app
+  cujo caso de uso é avatar ao vivo, esconder a webcam por padrão é o contrário
+  do esperado.
+
+- **`AutoSwapToggle` e `KeepInputToggle` ligados por padrão**
+  (`settings_layout_data.py`). Desligados, vincular a foto de origem ao rosto
+  detectado é **manual**: clicar no rosto, depois no card. Esse passo não está
+  documentado em lugar nenhum da interface e é exatamente onde se trava — tudo
+  parece configurado e nada acontece.
+
+  A lógica já existia em `card_actions.py:295-321`, só vinha desativada:
+
+  ```python
+  if control.get("KeepInputToggle", False) or control.get("AutoSwapToggle", False):
+      # atribui as input faces marcadas ao rosto recém-detectado
+  ```
+
+  No fluxo de webcam isso é mais que conveniência: os rostos são re-detectados
+  continuamente, então sem auto-atribuição o vínculo se perderia a cada detecção.
+
+---
+
 ## 3.9.3+xdz.5 — 11/ago/2026
 
 ### Qualidade — modelo de swap (faltava, era o mais importante)

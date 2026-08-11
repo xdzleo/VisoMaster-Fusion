@@ -9,6 +9,42 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.4 — 11/ago/2026
+
+### Qualidade — restorer
+
+- **Restorer ligado** (`FaceRestorerEnableToggle` → `True`). O swapper é
+  256-native, então a saída dele sai mole comparada ao vídeo em volta; o restorer
+  é o que devolve nitidez. Vinha desligado.
+- **`GFPGAN-1024`** em vez de `GFPGAN-v1.4` — resolve em 1024 em vez de 512.
+- **Blend `100` → `65`.** *Este* é o ajuste que causa a cara de plástico: em 100 a
+  saída idealizada do restorer substitui a pele inteira, apagando poro e
+  microtextura, e todo rosto sai com a mesma "cara de restorer". Em 65 sobra ~35%
+  da textura real do swap por baixo.
+
+### Orçamento por frame — medido nesta placa (RTX 5090, TensorRT)
+
+| etapa | ms |
+|---|---|
+| swapper InStyleSwapper256-C | 5,62 |
+| restorer GFPGAN-1024 | 5,85 |
+| máscara XSeg | 1,90 |
+| máscara Occluder | 0,64 |
+| **cadeia completa** | **14,01** |
+
+Cabe no orçamento de **30 fps** (33,3 ms) **e de 60 fps** (16,7 ms).
+`RestoreFormer++` foi medido e descartado: 14,62 ms sozinho leva a cadeia a
+22,78 ms — ok em 30 fps, estoura em 60.
+
+> **Armadilha de medição, registrada porque custou uma conclusão errada:** no
+> provider **CUDA** a mesma cadeia dá **32,72 ms** (XSeg sozinho custa 9,94 ms), e
+> parecia que as duas máscaras tinham estourado o orçamento de 30 fps. O
+> **TensorRT é 2,8× mais rápido** na cadeia inteira e **5,2× no XSeg** — é isso que
+> torna os defaults de qualidade viáveis. Quem medir este pipeline no CUDA EP
+> chega à conclusão errada.
+
+---
+
 ## 3.9.3+xdz.3 — 11/ago/2026
 
 ### Qualidade — defaults

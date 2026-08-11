@@ -9,6 +9,63 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.11 — 11/ago/2026
+
+### Integração — Master 4K (FaceFusion) dentro do VisoMaster
+
+Menu **Ver → Master 4K (FaceFusion)…** abre uma janela Qt com a interface do
+FaceFusion embutida (`QWebEngineView`), para o caminho **offline** de qualidade
+máxima. O servidor sobe sob demanda e é encerrado ao fechar a janela — não faz
+sentido manter um segundo processo pesado vivo durante uma live.
+
+Sejamos precisos sobre o que isto é: **não é a GUI do FaceFusion reescrita em
+Qt**. Os dois usam frameworks incompatíveis (Qt nativo vs Gradio/web); reescrever
+seriam 22 mil linhas. O que existe é o servidor dele embutido numa janela nossa,
+de modo que tudo fica num app só.
+
+Por que os dois coexistem, e não é preferência: o VisoMaster normaliza todo swap
+para o template canônico de **512**, o que é certo para tempo real mas é um teto;
+o FaceFusion warpa o crop do enhancer a partir do frame em **resolução cheia** e,
+sendo offline, aceita `pixel_boost 1024` e `gpen_bfr_2048`, que não cabem em
+33,3 ms. Cada um ganha exatamente onde o outro não pode.
+
+Dois bugs corrigidos no caminho, ambos meus:
+
+- **`--open-browser false`** — o argumento é `action='store_true'`, ou seja
+  **flag sem valor**. Passar `false` fazia o argparse abortar com
+  `unrecognized arguments: false`, e o servidor morria antes de subir.
+- **Porta fantasma** — `ui.launch()` do FaceFusion não recebe `server_port` nem
+  expõe flag de porta na CLI. A porta agora é fixada por `GRADIO_SERVER_PORT`
+  no ambiente, em vez de torcer para cair na 7860.
+
+E uma lição de método: eu havia posto `stdout=DEVNULL, stderr=DEVNULL` no
+subprocesso, então quando o servidor morria **o motivo ia para o lixo** e a
+janela só conseguia dizer "encerrou sozinho". A saída agora vai para arquivo e a
+janela **mostra as últimas linhas do log** quando o servidor cai.
+
+### Usabilidade — o terceiro diálogo modal bloqueante
+
+- **`AutoLoadWorkspaceToggle` default `True`.** Assim que existe um
+  `last_workspace.json`, o app abria um modal *"carregar o último workspace?"* e
+  travava em `load_dialog.exec_()` — **antes** de qualquer inicialização
+  automática, então `auto_start` e o item de menu do Master 4K nunca rodavam.
+
+  Sutileza que quase passou: o toggle é lido **de dentro do JSON do workspace
+  salvo**, não dos defaults do código. Mudar o default sozinho não conserta um
+  arquivo já existente; é preciso corrigir os dois lados.
+
+Este é o **terceiro** diálogo modal que travou a inicialização (provider,
+workspace, e o `QFileDialog` dentro de `select_input_face_images`). O padrão se
+repete: bloqueiam antes de qualquer automação e não dão nenhum sinal de que estão
+ali.
+
+### Higiene
+
+- `.gitignore` para estado local: `last_workspace.json`, `provider_escolhido.txt`,
+  `crash_logs/`, `tensorrt-engines/`, `model_assets/`.
+
+---
+
 ## 3.9.3+xdz.10 — 11/ago/2026
 
 ### Latência — lote bit-idêntico de ~8,5 ms/frame

@@ -78,6 +78,13 @@ def _run_app() -> None:
 
     auto_start.agendar(window)
 
+    # ADICIONADO: item de menu "Master 4K (FaceFusion)" — a UI do FaceFusion
+    # embutida numa janela Qt, para o caminho OFFLINE de qualidade maxima.
+    # Ver facefusion_master.py.
+    import facefusion_master
+
+    facefusion_master.instalar_no_menu(window)
+
     app.exec()
 
 

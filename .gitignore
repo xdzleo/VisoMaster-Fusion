@@ -42,3 +42,9 @@ test_frames*/
 test_videos*/
 presets/
 temp_files/
+last_workspace.json
+last_workspace.json.bak
+provider_escolhido.txt
+crash_logs/
+tensorrt-engines/
+model_assets/

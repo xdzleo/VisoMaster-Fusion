@@ -743,7 +743,19 @@ SETTINGS_LAYOUT_DATA: Any = {  # noqa: F811
         "AutoLoadWorkspaceToggle": {
             "level": 1,
             "label": "Auto Load Last Workspace",
-            "default": False,
+            # FORK: default True.
+            #
+            # Este e o SEGUNDO dialogo modal bloqueante da inicializacao (o
+            # primeiro e o de execution provider, resolvido lembrando a escolha
+            # em provider_escolhido.txt). Assim que existe um last_workspace.json
+            # o app trava em `load_dialog.exec_()` esperando clique — e trava
+            # ANTES de qualquer inicializacao automatica, entao o auto_start e o
+            # item de menu do Master 4K nunca chegam a rodar.
+            #
+            # Carregar o ultimo workspace e o que o usuario quer em 99% das
+            # aberturas; perguntar toda vez custa um clique e quebra automacao.
+            # Quem quiser o dialogo de volta e so desmarcar nos Ajustes.
+            "default": True,
             "help": 'Do not show the "load last workspace" dialog when open then app, always load last workspace.',
         },
         "SliderMouseWheelControlToggle": {

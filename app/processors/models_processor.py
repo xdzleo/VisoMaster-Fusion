@@ -749,10 +749,29 @@ class ModelsProcessor(QtCore.QObject):
                         )
                         self.models_pending_build.add(model_name)
 
+                # `self.provider_name` e o rotulo escolhido na UI, nao o que a
+                # sessao realmente conseguiu. Se as DLLs do CUDA nao carregarem, o
+                # onnxruntime cai para CPU EM SILENCIO e o log continuaria dizendo
+                # "TensorRT" — exatamente o modo de falha que ja nos custou tempo.
+                # Aqui perguntamos a propria sessao.
+                actual_providers = model_instance.get_providers()
+                actual = actual_providers[0] if actual_providers else "desconhecido"
+
+                # Cuidado: get_providers() diz quais EPs REGISTRARAM, nao qual ficou
+                # com os nos. TensorRT registrar sem receber no nenhum e legitimo
+                # aqui (build preguicoso — ver models_pending_build acima), entao
+                # NAO exigimos TensorRT. Uma lista comecando em CPU, porem, significa
+                # que os EPs de GPU nao carregaram: isso e o bug.
+                if self.device_type == "cuda" and actual == "CPUExecutionProvider":
+                    raise RuntimeError(
+                        f"{model_name}: GPU pedida mas a sessao caiu para CPU "
+                        f"(providers: {actual_providers}). Verifique se as pastas "
+                        f"nvidia/cu13/bin/x86_64, nvidia/cudnn/bin e tensorrt_libs "
+                        f"estao no PATH — ver docs/INSTALL-RTX50-VENV.md."
+                    )
+
                 self.models[model_name] = model_instance
-                print(
-                    f"[INFO] Loading model: {model_name} with provider: {self.provider_name}"
-                )
+                print(f"[INFO] Loading model: {model_name} with provider: {actual}")
                 if model_name == "Inswapper128":
                     graph = onnx.load(self.models_path[model_name]).graph
                     emap_initializer = None

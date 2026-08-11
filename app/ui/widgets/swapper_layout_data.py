@@ -1386,11 +1386,16 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
                 "Reinhard Transfer (Masked)",
                 "AdaIN (Core Masked)",
             ],
-            # FORK: Reinhard em vez de CDF Histogram. Reinhard casa media e
-            # desvio-padrao em LAB — transicao suave, robusta a mudanca de
-            # fundo. CDF forca o histograma inteiro, o que em video ao vivo
-            # oscila frame a frame conforme o fundo muda.
-            "default": "Reinhard Transfer",
+            # FORK: Reinhard MASCARADO.
+            # Reinhard casa media e desvio-padrao em LAB — transicao suave e
+            # robusta a mudanca de fundo; CDF forca o histograma inteiro, que em
+            # video ao vivo oscila frame a frame conforme o fundo se mexe.
+            # A variante (Masked) importa: a versao sem mascara usa "todo pixel
+            # com soma > 0,01" do crop 512 INTEIRO, ou seja o FUNDO entra na
+            # estatistica que casa o tom de PELE. A mascara correta (nucleo
+            # XSeg) ja esta construida logo acima no pipeline, e as duas
+            # variantes custam o mesmo — e a mesma indexacao booleana.
+            "default": "Reinhard Transfer (Masked)",
             "parentToggle": "EndingColorTransferEnableToggle",
             "requiredToggleValue": True,
             "help": (

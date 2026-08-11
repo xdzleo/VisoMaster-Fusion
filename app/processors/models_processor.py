@@ -1180,6 +1180,26 @@ class ModelsProcessor(QtCore.QObject):
         if nvidia-smi is unavailable.  Returns ``(0, 0)`` when no GPU is detected.
         """
         # MP-13: use a single nvidia-smi call for both total and free memory
+        # FORK: mem_get_info primeiro; nvidia-smi vira o fallback.
+        #
+        # Este metodo e chamado por QTimer de 5 s NA THREAD DE GUI — a mesma que
+        # agora entrega o frame para a camera virtual. `sp.check_output` cria um
+        # PROCESSO: no Windows isso custa tipicamente 100-400 ms, e bloqueia a
+        # thread inteira enquanto roda. Ou seja, um engasgo periodico na saida
+        # de video que acontece por construcao, sem o usuario tocar em nada.
+        #
+        # torch.cuda.mem_get_info() e chamada de driver: microssegundos, sem
+        # spawn. Reporta memoria livre/total DO DISPOSITIVO (nao do processo),
+        # que e exatamente o que a barra da UI quer mostrar.
+        try:
+            if torch.cuda.is_available():
+                livre, total = torch.cuda.mem_get_info(self.gpu_id)
+                memory_total_val = total // (1024 * 1024)
+                memory_free_val = livre // (1024 * 1024)
+                return memory_total_val - memory_free_val, memory_total_val
+        except Exception:
+            pass  # cai para nvidia-smi
+
         try:
             command = f"nvidia-smi --id={self.gpu_id} --query-gpu=memory.total,memory.free --format=csv,noheader,nounits"
             output = sp.check_output(command.split()).decode("ascii").strip()

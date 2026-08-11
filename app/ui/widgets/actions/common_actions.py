@@ -535,9 +535,13 @@ def get_pixmap_from_frame(main_window: "MainWindow", frame: np.ndarray):
     else:
         # Frame in color
         bytes_per_line = 3 * width
+        # FORK: Format_BGR888 em vez de RGB888 + .rgbSwapped().
+        # O frame chega em BGR, e .rgbSwapped() fazia uma COPIA DO FRAME INTEIRO
+        # por frame, na thread de GUI, so para reordenar canais — trabalho que o
+        # Qt faz de graca ao ser informado do formato correto.
         q_img = QtGui.QImage(
-            frame.data, width, height, bytes_per_line, QtGui.QImage.Format.Format_RGB888
-        ).rgbSwapped()
+            frame.data, width, height, bytes_per_line, QtGui.QImage.Format.Format_BGR888
+        )
     pixmap = QtGui.QPixmap.fromImage(q_img)
     return pixmap
 

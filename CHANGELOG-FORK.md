@@ -9,6 +9,45 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.9 — 11/ago/2026
+
+### Thread de GUI — correções sem ganho mensurável (registrado como tal)
+
+Duas mudanças na thread que agora entrega o frame. Ambas são corretas, **nenhuma
+rendeu diferença mensurável**, e isso está registrado em vez de inflado.
+
+- **`get_gpu_memory` usa `torch.cuda.mem_get_info` em vez de `nvidia-smi`.**
+  O método é chamado por QTimer de 5 s na thread de GUI, e `sp.check_output`
+  cria um PROCESSO (100–400 ms no Windows) bloqueando-a. `mem_get_info` é
+  chamada de driver. *Por que não apareceu na medição:* roda a cada 5 s, então
+  afetaria o pior caso, não a mediana — e amostras de ~145 frames cobrem ~5 s.
+- **`QImage.Format_BGR888` em vez de `Format_RGB888` + `.rgbSwapped()`.**
+  Eliminava uma cópia de frame inteiro por frame na thread de GUI. Em 1280×720
+  isso é ~1–2 ms: real, mas abaixo do ruído da medição.
+
+### Qualidade — color transfer mascarado
+
+- **`Reinhard Transfer` → `Reinhard Transfer (Masked)`.** A variante sem máscara
+  usa "todo pixel com soma > 0,01" do crop 512 **inteiro** — o **fundo entra na
+  estatística que casa o tom de pele**. A máscara correta (núcleo XSeg) já está
+  construída logo acima no pipeline e as duas variantes custam a mesma indexação
+  booleana. Provável responsável pelo ~1 ms a mais na mediana; é troca de
+  qualidade, não regressão.
+
+### Estado da medição
+
+| | mediana | p95 |
+|---|---|---|
+| baseline (metrônomo) | 66,2 ms | 100,1 ms |
+| + entrega na chegada | 32,4–34,5 ms | 45–60 ms |
+| + estas mudanças | 34,1–36,0 ms | 49–58 ms |
+
+Orçamento restante: cadeia de GPU custa **14,0 ms** de uma mediana de ~35 ms.
+Sobram **~21 ms fora da GPU** — é aí que está o próximo ganho, e ele está nas
+threads worker/feeder, não na de GUI.
+
+---
+
 ## 3.9.3+xdz.8 — 11/ago/2026
 
 ### Latência — **FPS DOBRADO** (15 → 30)

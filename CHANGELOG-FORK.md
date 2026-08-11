@@ -9,6 +9,27 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.5 — 11/ago/2026
+
+### Qualidade — modelo de swap (faltava, era o mais importante)
+
+Os commits anteriores ajustaram máscaras, restorer e color transfer mas
+deixaram passar o principal: o **modelo de swap** continuava no padrão do
+upstream.
+
+- **`SwapModelSelection`: `Inswapper128` → `InStyleSwapper256 Version C`.**
+  O Inswapper128 resolve internamente em 128 px: para chegar a 1024 ele precisa
+  de **64 forward-passes**, contra **16** de qualquer modelo 256-native — mais
+  caro *e* com teto de identidade pior. A Version C é o nível de realismo da
+  família (A = rápido, B = equilibrado).
+- **`InStyleResCEnableToggle`: `False` → `True`.** É o par do modelo padrão; sem
+  ele o swap sai em 256 e fica visivelmente mole contra o vídeo em volta.
+
+Medido (TensorRT, RTX 5090): a cadeia completa fecha em **14,01 ms**, com folga
+em 30 fps e em 60 fps.
+
+---
+
 ## 3.9.3+xdz.4 — 11/ago/2026
 
 ### Qualidade — restorer

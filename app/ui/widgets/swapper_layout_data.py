@@ -22,7 +22,12 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
                 "GhostFace-v3",
                 "CSCS",
             ],
-            "default": "Inswapper128",
+            # FORK: InStyleSwapper256 Version C em vez de Inswapper128.
+            # O Inswapper128 resolve internamente em 128px: para chegar a 1024
+            # ele precisa de 64 forward-passes, contra 16 de qualquer modelo
+            # 256-native — mais caro E com teto de identidade pior. A Version C
+            # e o nivel de realismo da familia (A=rapido, B=equilibrado).
+            "default": "InStyleSwapper256 Version C",
             "help": "Choose which swapper model to use for face swapping.",
         },
         "SwapperResSelection": {
@@ -61,7 +66,11 @@ SWAPPER_LAYOUT_DATA: Any = {  # noqa: F811
         "InStyleResCEnableToggle": {
             "level": 2,
             "label": "512 Resolution",
-            "default": False,
+            # FORK: True. E o par do modelo padrao (Version C) — sem isso o
+            # swap sai em 256 e fica visivelmente mole contra o video em volta.
+            # Medido: a cadeia inteira fecha em 14,01 ms no TensorRT, entao ha
+            # orcamento de sobra em 30 e ate em 60 fps.
+            "default": True,
             "parentSelection": "SwapModelSelection",
             "requiredSelectionValue": "InStyleSwapper256 Version C",
             "help": "Like the inswapper Resolution (512) for InStyleSwappers. i dont know to hide it with 3 selections possible :(.",

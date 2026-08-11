@@ -9,6 +9,50 @@ o app já mostra `VisoMaster Fusion - 3.9.3+xdz.1 (<hash>)`.
 
 ---
 
+## 3.9.3+xdz.8 — 11/ago/2026
+
+### Latência — **FPS DOBRADO** (15 → 30)
+
+O maior ganho de todo o trabalho, e não veio da GPU.
+
+`display_next_frame` só entregava o frame no tique do metrônomo. Se o frame não
+estivesse pronto naquele instante exato, fazia `return` e esperava um **período
+inteiro**. Com tick de 33,3 ms (30 fps), um pipeline de 35 ms não perdia 1,7 ms —
+perdia 33,3, e a taxa colapsava para exatamente metade.
+
+**A assinatura do bug estava nos números**, antes de qualquer leitura de código:
+
+| | medido | é |
+|---|---|---|
+| mediana | 66,2 ms | **2 × 33,3** |
+| p95 | 100,1 ms | **3 × 33,3** |
+
+Múltiplos exatos do período do tick. Isso é quantização, não carga — carga real
+produz distribuição contínua.
+
+**Correção:** entregar em `store_webcam_frame_to_display`, na *chegada* do frame,
+e não no tique. A UI (QPixmap) continua no metrônomo, que é onde ela deve ficar:
+a tela não precisa de mais que a taxa de refresh, mas o OBS precisa do frame
+assim que ele existir.
+
+Seguro por construção: o slot já roda na thread de GUI (conectado por sinal a
+partir do worker), o mesmo contexto de onde `display_next_frame` chamava — nenhuma
+concorrência nova no driver da câmera virtual.
+
+**Medido, 5 amostras consecutivas de ~150 frames cada:**
+
+| | antes | depois |
+|---|---|---|
+| taxa | 15,1 fps | **29,0 – 30,9 fps** |
+| mediana | 66,2 ms | **32,4 – 34,5 ms** |
+| p95 | 100,1 ms | **45,1 – 59,6 ms** |
+
+Vale registrar o contexto: a cadeia de GPU custa 14,01 ms dos 33,3 ms disponíveis.
+O gargalo nunca foi a placa — era espera. A RTX 5090 fazia sua parte em 14 ms e
+ficava parada esperando o relógio.
+
+---
+
 ## 3.9.3+xdz.7 — 11/ago/2026
 
 ### Instrumentação — contador de FPS

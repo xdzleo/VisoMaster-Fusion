@@ -71,6 +71,13 @@ def _run_app() -> None:
         app.setStyleSheet(_style)
     window = main_ui.MainWindow(gpu_id=args.gpu_id)
     window.show()
+
+    # ADICIONADO: monta o fluxo ao vivo sozinho (fotos -> marcar -> webcam).
+    # Ver auto_start.py. Desligar com AVATARKIT_NO_AUTOSTART=1.
+    import auto_start
+
+    auto_start.agendar(window)
+
     app.exec()
 
 

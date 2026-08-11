@@ -1051,14 +1051,46 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # First launch or no workspace: Prompt for execution provider
             options = ["CUDA", "TensorRT", "TensorRT-Engine", "CPU"]
 
-            provider, ok = QtWidgets.QInputDialog.getItem(
-                self,
-                "Initial Setup: Execution Provider",
-                "No previous workspace found.\n\nPlease select your preferred execution provider.\n(Select 'CUDA' or 'CPU' to avoid generating TensorRT engines on this launch):",
-                options,
-                1,  # Default index (1 = TensorRT)
-                False,  # Non-editable dropdown
-            )
+            # FORK: lembra a escolha entre execucoes.
+            #
+            # Sem workspace salvo este dialogo e MODAL e BLOQUEANTE, e reaparece
+            # a CADA lancamento — travando qualquer inicializacao automatica
+            # atras dele. Como o workspace so nasce quando o usuario salva um,
+            # na pratica isso significa perguntar para sempre.
+            #
+            # Guardamos a escolha num arquivo proprio: pergunta uma vez, reusa
+            # depois. Apagar provider_escolhido.txt faz o dialogo voltar.
+            arquivo_provider = self.last_workspace_path.parent / "provider_escolhido.txt"
+            provider, ok = None, False
+
+            if arquivo_provider.is_file():
+                try:
+                    # utf-8-sig, nao utf-8: se o arquivo for gravado por
+                    # PowerShell (Out-File / Set-Content) vem com BOM, e o BOM
+                    # NAO e removido por strip() — a comparacao falharia em
+                    # silencio e o dialogo bloqueante voltaria a cada execucao.
+                    salvo = arquivo_provider.read_text(encoding="utf-8-sig").strip()
+                    if salvo in options:
+                        provider, ok = salvo, True
+                        print(f"[INFO] Provider lembrado da ultima vez: {provider}")
+                except OSError:
+                    pass
+
+            if not ok:
+                provider, ok = QtWidgets.QInputDialog.getItem(
+                    self,
+                    "Initial Setup: Execution Provider",
+                    "No previous workspace found.\n\nPlease select your preferred execution provider.\n(Select 'CUDA' or 'CPU' to avoid generating TensorRT engines on this launch):",
+                    options,
+                    1,  # Default index (1 = TensorRT)
+                    False,  # Non-editable dropdown
+                )
+                if ok and provider:
+                    try:
+                        arquivo_provider.parent.mkdir(parents=True, exist_ok=True)
+                        arquivo_provider.write_text(provider, encoding="utf-8")
+                    except OSError as exc:
+                        print(f"[WARN] Nao consegui lembrar o provider: {exc}")
 
             if ok and provider:
                 print(f"[INFO] Initial provider selected: {provider}")

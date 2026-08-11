@@ -394,6 +394,29 @@ class VideoProcessor(QObject):
         # Put the new, latest frame in the now-empty queue
         self.webcam_frames_to_display.put(frame)
 
+        # FORK: entrega para a camera virtual AQUI, na chegada — nao no tique
+        # do metronomo.
+        #
+        # display_next_frame so entregava no tique e, se o frame nao estivesse
+        # pronto naquele instante, fazia `return` e esperava um periodo INTEIRO.
+        # Com tick de 33,3 ms (30 fps), um pipeline de 35 ms nao perdia 1,7 ms:
+        # perdia 33,3, e a taxa colapsava para exatamente metade.
+        #
+        # Medido antes da correcao: mediana 66,2 ms (= 2x tick) e p95 100,1 ms
+        # (= 3x tick) — multiplos exatos do periodo, assinatura de quantizacao,
+        # nao de carga. A cadeia de GPU custa 14 ms; o resto era espera.
+        #
+        # A UI (QPixmap) continua no metronomo, que e onde ela deve ficar: a
+        # tela nao precisa de mais que a taxa de refresh, mas o OBS precisa do
+        # frame assim que existir.
+        #
+        # Seguranca: este slot ja roda na thread de GUI (conectado por sinal a
+        # partir do worker), entao nao introduz concorrencia no driver da
+        # camera virtual — e o mesmo contexto de onde display_next_frame
+        # chamava antes.
+        self.send_frame_to_virtualcam(frame)
+        self._contar_fps_saida()
+
     @Slot(int, int, numpy.ndarray, object)
     def store_single_frame_to_display(
         self, generation, frame_number, frame, _preview_cache
@@ -1348,8 +1371,12 @@ class VideoProcessor(QObject):
                 self.heartbeat_frame_counter = 0
                 self.processing_heartbeat_signal.emit()
 
-        # Send to Virtual Cam
-        self.send_frame_to_virtualcam(frame)
+        # FORK: no modo webcam o envio ja aconteceu em
+        # store_webcam_frame_to_display, na CHEGADA do frame. Enviar de novo
+        # aqui duplicaria o frame no driver e reintroduziria a quantizacao do
+        # metronomo que a mudanca existe para eliminar.
+        if self.file_type != "webcam":
+            self.send_frame_to_virtualcam(frame)
 
         # Write to FFmpeg
         if self.is_processing_segments or self.recording:
@@ -1441,7 +1468,6 @@ class VideoProcessor(QObject):
                 if self.virtcam:
                     try:
                         self.virtcam.send(frame)
-                        self._contar_fps_saida()
                     except Exception as e:
                         print(
                             f"[WARN] Catastrophic failure sending frame to virtualcam: {e}"
